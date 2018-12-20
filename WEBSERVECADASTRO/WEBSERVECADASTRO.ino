@@ -39,10 +39,12 @@ void handleCadastrar(){
     server.send(301);
     return;
   }
+  /*
   String content = "<html><body><H2>AQUI SERA CADASTRADO UM USUARIO! com RFID : " + server.arg("RFID")+" </H2><br>";
- /* if (server.hasHeader("User-Agent")) {
+  if (server.hasHeader("User-Agent")) {
     content += "conectado com o dispositivo: " + server.header("User-Agent") + "<br><br>";
   }*/
+  /*
   content +="<form action='/Confirma' method='POST'>Cadastre um novo usuario<br>";
   content += "Nome:<input type='text' name='NOME' placeholder='nome'><br>";
   content += "Sobrenome:<input type='text' name='SOBRENOME' placeholder='sobrenome'><br>";
@@ -51,6 +53,24 @@ void handleCadastrar(){
   content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + msg + "<br>";
 
   content += "Clique aqui para fazer <a href=\"/Login?DISCONNECT=YES\">logout</a></body></html>";
+  */
+  String content = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+  content += "<style>\nbody {font-family: Arial, Helvetica, sans-serif;}\n input[type=text],input[type=password]{width:100%; padding:12px 20px ;margin:8px 0 ;display: inline-block; border: 1px solid #ccc; box-sizing:border-box; }";
+  content += "button{background-color:rgb(83,7,7);color:white;padding:14px 20px;margin:8px 0;border: none;cursor:pointer;width:100%;display: inline-block;}";
+  content += ".container{padding:16px;}";
+  content += ".modal{display:none;position:fixed;z-index:1;left:0;top:0;width:100%;heigth:100%;overflow:auto;background-color:rgb(0,0,0);background-color:rgba(0,0,0,0.4);padding-top:50px;}";
+  content += ".modal-content{background-color:#fefefe;margin:5% auto 15% auto;border:1px solid #888;width:80%;}</style>";
+  content += "</head>";
+  content += "<body><h1>Cadastro de Usuarios</h1>";
+  content += "<form class='modal-content animate' action='/Confirma' method='POST'><div class='container'>";
+  content += "<label for='nome'><b>Nome</b></label><input type='text' name='NOME' required>";
+  content += "<label for='sobrenome'><b>Sobrenome</b></label><input type='text' name='SOBRENOME' required>";
+  content += "<label for='cpf'><b>CPF</b></label><input type='text' name='CPF' required>";
+  content += "<label for='rfid'><b>ID</b></label><input type='text' name='RFID' value='"+server.arg("RFID")+"' readonly>";
+  content += "<button type='submit' name='SUBMIT' href='/Confirma'>CADASTRAR</button></div></form>";
+  content += "<form class='modal-content animate' action='/RFIDRead' method='GET'><div class='container'><button type='submit' name='SUBMIT' href='/RFIDRead'>Cancelar</button>";
+  content += "</div></form></body></html>";
+  
   server.send(200, "text/html", content);
   
 }
@@ -155,11 +175,25 @@ String msg;
     }
     msg = "Wrong username/password! try again.";
     Serial.println("Log in Failed");
-  }
+  }/*
   String content = "<html><body><form action='/Login' method='POST'>To log in, please use : admin/admin<br>";
   content += "User:<input type='text' name='USERNAME' placeholder='user name'><br>";
   content += "Password:<input type='password' name='PASSWORD' placeholder='password'><br>";
-  content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + msg + "<br>";
+  content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + msg + "<br>";*/
+  String content = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+  content += "<style>\nbody {font-family: Arial, Helvetica, sans-serif;}\n input[type=text],input[type=password]{width:100%; padding:12px 20px ;margin:8px 0 ;display: inline-block; border: 1px solid #ccc; box-sizing:border-box; }";
+  content += "button{background-color:rgb(83,7,7);color:white;padding:14px 20px;margin:8px 0;border: none;cursor:pointer;width:100%;}";
+  content += ".container{padding:16px;}";
+  content += ".modal{display:none;position:fixed;z-index:1;left:0;top:0;width:100%;heigth:100%;overflow:auto;background-color:rgb(0,0,0);background-color:rgba(0,0,0,0.4);padding-top:50px;}";
+  content += ".modal-content{background-color:#fefefe;margin:5% auto 15% auto;border:1px solid #888;width:80%;}</style>";
+  content += "</head>";
+  content += "<body><h1>Administrador Loyola</h1>";
+  content += "<form class=\"modal-content animate\">";
+  content += "<div class=\"container\"><label for=\"uname\"><b>Usuario</b></label><input type='text' name='USERNAME' required>";
+  content += "<label for=\"psw\"><b>Senha</b></label><input type='password' name='PASSWORD' required> ";
+  content += "<button type='submit' name='SUBMIT'>Login</button>"+msg+"</div></form></body></html>";
+
+  
   server.send(200, "text/html", content);
 
   
