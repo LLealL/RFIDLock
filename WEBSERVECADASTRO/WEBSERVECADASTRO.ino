@@ -3,12 +3,20 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266HTTPClient.h>
+#include <SPI.h>
+#include <MFRC522.h>
+
+#define RST_PIN    0   
+#define SS_PIN     15
+
+
 
 const char* ssid = "...";
 const char* password = "...";
 
 ESP8266WebServer server(80);
 
+MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 ESP8266WiFiMulti WiFiMulti;
 
@@ -39,21 +47,7 @@ void handleCadastrar(){
     server.send(301);
     return;
   }
-  /*
-  String content = "<html><body><H2>AQUI SERA CADASTRADO UM USUARIO! com RFID : " + server.arg("RFID")+" </H2><br>";
-  if (server.hasHeader("User-Agent")) {
-    content += "conectado com o dispositivo: " + server.header("User-Agent") + "<br><br>";
-  }*/
-  /*
-  content +="<form action='/Confirma' method='POST'>Cadastre um novo usuario<br>";
-  content += "Nome:<input type='text' name='NOME' placeholder='nome'><br>";
-  content += "Sobrenome:<input type='text' name='SOBRENOME' placeholder='sobrenome'><br>";
-  content += "Cpf:<input type='text' name='CPF' placeholder='cpf'><br>";
-  content += "RFID: <input type='text' name='RFID' value='" + server.arg("RFID")+ "' readonly><br> ";
-  content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + msg + "<br>";
 
-  content += "Clique aqui para fazer <a href=\"/Login?DISCONNECT=YES\">logout</a></body></html>";
-  */
   String content = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
   content += "<style>\nbody {font-family: Arial, Helvetica, sans-serif;}\n input[type=text],input[type=password]{width:100%; padding:12px 20px ;margin:8px 0 ;display: inline-block; border: 1px solid #ccc; box-sizing:border-box; }";
   content += "button{background-color:rgb(83,7,7);color:white;padding:14px 20px;margin:8px 0;border: none;cursor:pointer;width:100%;display: inline-block;}";
@@ -66,7 +60,10 @@ void handleCadastrar(){
   content += "<label for='nome'><b>Nome</b></label><input type='text' name='NOME' required>";
   content += "<label for='sobrenome'><b>Sobrenome</b></label><input type='text' name='SOBRENOME' required>";
   content += "<label for='cpf'><b>CPF</b></label><input type='text' name='CPF' required>";
-  content += "<label for='rfid'><b>ID</b></label><input type='text' name='RFID' value='"+server.arg("RFID")+"' readonly>";
+  content += "<label for='matricula'><b>Matricula</b></label><input type='text' name='MATRICULA' required>";
+  content += "<label for='tipoUser'><b>Tipo de Usuario</b></label><br><select class='type' name='TIPO'><option selected>Escolha...</option><option value='Aluno'>Aluno</option>";
+  content += "<option value='Funcionario'>Funcionario</option><option value='Professor'>Professor</option></select>";
+  content += "<label for='rfid'><b><br>ID</b></label><input type='text' name='RFID' value='"+server.arg("RFID")+"' readonly>";
   content += "<button type='submit' name='SUBMIT' href='/Confirma'>CADASTRAR</button></div></form>";
   content += "<form class='modal-content animate' action='/RFIDRead' method='GET'><div class='container'><button type='submit' name='SUBMIT' href='/RFIDRead'>Cancelar</button>";
   content += "</div></form></body></html>";
@@ -75,17 +72,16 @@ void handleCadastrar(){
   
 }
 
-boolean makePost(String rfid, String nome, String sobrenome, String cpf){
+boolean makePost(String rfid, String nome, String sobrenome, String cpf,String matricula, String tipo){
   boolean b=false;
-  String payload="cpf="+cpf+"&codigoIdentificacao="+rfid+"&nome="+nome+"&sobrenome="+sobrenome;
+    String json= "{\"cpf\":\""+cpf+"\",\"codigoIdentificacao\":\""+rfid+"\",\"nome\":\""+nome+"\",\"sobrenome\":\""+sobrenome+"\",\"tipoPessoa\":\""+tipo+"\",\"matricula\":\""+matricula+"\"}";
 
-  if((WiFiMulti.run()==WL_CONNECTED)){
-    Serial.print("[HTTP] begin...\n");
-    http.begin("http://openmyway.herokuapp.com/usuario/cadastrar");
+    Serial.print("[JSON] = "+json);
+    http.begin("http://openmyway.herokuapp.com/usuario/cadastrarIntegranteUniversidade");
     Serial.print("[HTTP] POST...\n");
-    http.addHeader("Content-Type","application/x-www-form-urlencoded");
-    http.addHeader("Content-Lenght",String(payload.length()));
-    int httpCode= http.POST(payload);
+    http.addHeader("Content-Type","application/json");
+    http.addHeader("Content-Lenght",String(json.length()));
+    int httpCode= http.POST(json);
 
     if(httpCode>0){
       Serial.printf("[HTTP] POST ... Response Code: %d\n",httpCode);
@@ -93,21 +89,28 @@ boolean makePost(String rfid, String nome, String sobrenome, String cpf){
         String payload = http.getString();
         Serial.println(payload);
         b=true;
+        
       }
       
     }else{
       Serial.printf("[HTTP] POST... failed, Error: %s \n", http.errorToString(httpCode).c_str());
     }
-  
+
     http.end();
     delay(10000);
-  }
   return b;
 }
 
 void handleConfirma(){
   Serial.println("Enter handleConfirma");
   String header;
+  String content = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+  content += "<style>\nbody {font-family: Arial, Helvetica, sans-serif;}\n input[type=text],input[type=password]{width:100%; padding:12px 20px ;margin:8px 0 ;display: inline-block; border: 1px solid #ccc; box-sizing:border-box; }";
+  content += "button{background-color:rgb(83,7,7);color:white;padding:14px 20px;margin:8px 0;border: none;cursor:pointer;width:100%;display: inline-block;}";
+  content += ".container{padding:16px;}";
+  content += ".modal{display:none;position:fixed;z-index:1;left:0;top:0;width:100%;heigth:100%;overflow:auto;background-color:rgb(0,0,0);background-color:rgba(0,0,0,0.4);padding-top:50px;}";
+  content += ".modal-content{background-color:#fefefe;margin:5% auto 15% auto;border:1px solid #888;width:80%;}</style>";
+  content += "</head>";
 
   if(!is_authentified()){
     server.sendHeader("Locaton","/Login");
@@ -115,26 +118,31 @@ void handleConfirma(){
     server.send(301);
     return;
   }
-  if(server.hasArg("NOME")&&server.hasArg("SOBRENOME")&&server.hasArg("CPF")&&server.hasArg("RFID")){
-    if(makePost(server.arg("RFID"),server.arg("NOME"),server.arg("SOBRENOME"),server.arg("CPF"))){
+  if(server.hasArg("NOME")&&server.hasArg("SOBRENOME")&&server.hasArg("CPF")&&server.hasArg("RFID")&&server.hasArg("MATRICULA")&&server.hasArg("TIPO")){
+    if(makePost(server.arg("RFID"),server.arg("NOME"),server.arg("SOBRENOME"),server.arg("CPF"),server.arg("MATRICULA"),server.arg("TIPO"))){
       Serial.println("FEITO O POST");
-      String content = "<html><body><H2> CADASTRO FEITO COM SUCESSO</H2><br>";
-      content+="NOME: "+server.arg("NOME")+"<br>";
-      content+="SOBRENOME: "+server.arg("SOBRENOME")+ "<br>";
-      content+="CPF: " +server.arg("CPF")+"<br>";
-      content+="RFID: "+server.arg("RFID")+"<br>";
-      content+="<a href=\"/RFIDRead\">NOVO USUARIO</a> ou <a href=\"/Login?DISCONNECT=YES\">SAIR<\a></body></html>";
+
+      content += "<body><div class='container' align='center'><h1>Usuario cadastrado com sucesso</h1>";
+      content += "<form class='modal-content animate' action='/RFIDRead' method='GET'><div class='container'><button type='submit' name='SUBMIT' href='/RFIDRead'>Novo Usuario</button>";
+      content += "</div></form>";
+      content += "<form class='modal-content animate' action='/Login?DISCONNECT=YES' method='GET'><div class='container'><button type='submit' name='SUBMIT' href='/Login?DISCONNECT=YES'>Sair</button>";
+      content += "</div></div></form></body></html>";
+      
+      
       server.send(200,"text/html",content);
       return;
     }
   }
-    String content = "<html><body><H2> ERRO AO CADASTRAR  USUARIO</H2></body></html>";
+      content += "<body><div class='container'align='center'><h1>ERRO ao cadastrar Usuario</h1><form class='modal-content animate' action='/RFIDRead' method='GET'>";
+      content += "<div class='container'><button type='submit' name='SUBMIT' href='RFIDRead'>Voltar</button></div></form></div></body></html>";
+    
    server.send(200,"text/html",content); 
 }
 
 void handleRFID(){
   Serial.println("Enter handleRFID");
   String header;
+  String rfidTag="";
 
   if(!is_authentified()){
     server.sendHeader("Location", "/Login");
@@ -142,11 +150,60 @@ void handleRFID(){
     server.send(301);
     return;
   }
+  /*
   String content = "<html><body><H2> PASSE O CARTAO RFID PARA OBTER LEITURA</H2><br>";
   
-  content += "Clique aqui para adicionar um novo <a href=\"/Cadastrar?RFID=ID8266AFF\">RFID</a></body></html>";
-  
-  server.send(200,"text/html",content);
+  content += "Clique aqui para adicionar um novo <a href=\"/Cadastrar?RFID=ID8266AFF\">RFID</a></body></html>";*/
+
+  String content = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+  content += "<style>\nbody {font-family: Arial, Helvetica, sans-serif;}\n input[type=text],input[type=password]{width:100%; padding:12px 20px ;margin:8px 0 ;display: inline-block; border: 1px solid #ccc; box-sizing:border-box; }";
+  content += "button{background-color:rgb(83,7,7);color:white;padding:14px 20px;margin:8px 0;border: none;cursor:pointer;width:100%;display: inline-block;}";
+  content += ".container{padding:16px;}";
+  content += ".modal{display:none;position:fixed;z-index:1;left:0;top:0;width:100%;heigth:100%;overflow:auto;background-color:rgb(0,0,0);background-color:rgba(0,0,0,0.4);padding-top:50px;}";
+  content += ".modal-content{background-color:#fefefe;margin:5% auto 15% auto;border:1px solid #888;width:80%;}</style>";
+  content += "</head>";
+  content += "<body><h2>Passe o Cartao RFID para obter leitura</h2>";
+  content += "<form class='modal-content animate' action='/Cadastrar' method='POST'>";
+ // content += "<div class='container'><label for='uname'><b>Digite um RFID</b></label><input type='text' name='RFID' required></div><form></body></html>";
+//  content += "<button type='submit' name='SUBMIT'>LER RFID</button></div></form></body></html>";
+ // content += "<div class='container'><label for='uname'><b>Passe o Cartao RFID</b></label><input type='text' name='RFID' required></div><form></body></html>";
+  rfidTag = getRFID();
+  while(rfidTag==" "){
+    rfidTag= getRFID();
+   // Serial.println("Tag Lida: ");
+   // Serial.print(rfidTag);
+   yield();
+  }
+    Serial.println("Tag Lida: ");
+    Serial.print(rfidTag);
+  content += "<div class='container'><label for='uname'><b>Passe o Cartao RFID</b></label><input type='text' name='RFID' value='"+rfidTag+"' required>";
+  content += "<button type='submit' name='SUBMIT'>CONFIRMAR</button></div></form></body></html>";
+  server.send(200,"text/html",content);    
+   // server.send(200,"text/html",content);
+}
+
+String getRFID(){
+  if ( ! mfrc522.PICC_IsNewCardPresent()) 
+  {
+    return  " ";
+  }
+  // Seleciona o cartao RFID
+  if ( ! mfrc522.PICC_ReadCardSerial()) 
+  {
+    return " ";
+  }
+   String conteudo;
+  Serial.print("UID da tag :");
+  byte letra;
+  for(byte i= 0; i< mfrc522.uid.size; i++){
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? "0" : "");
+     Serial.print(mfrc522.uid.uidByte[i], HEX);
+     conteudo.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? "0" : ""));
+     conteudo.concat(String(mfrc522.uid.uidByte[i], HEX));
+  }
+
+  conteudo.toUpperCase();
+  return conteudo;
 }
 
 void handleLogin(){
@@ -271,6 +328,14 @@ Serial.begin(115200);
   server.begin();
   Serial.println("HTTP server started");
 
+  startRFIDSensor();
+
+}
+
+void startRFIDSensor(){
+  SPI.begin();
+  mfrc522.PCD_Init();
+  Serial.println("Sensor RFID inicializado");
 }
 
 void loop() {
